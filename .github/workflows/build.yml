@@ -171,7 +171,7 @@ jobs:
       - name: NuGet sources.
         shell: pwsh
         run: |
-          $sources = nuget sources List -Format Short
+          $sources = (nuget sources List) -join [Environment]::NewLine
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($sources -match 'Microsoft Visual Studio Offline Packages') {
             nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
