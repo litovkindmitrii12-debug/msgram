@@ -52,6 +52,8 @@ jobs:
           7z x -y -o"$RUNNER_TEMP/msgram-files" "$GITHUB_WORKSPACE/msgram-src/msgram-files.zip" > /dev/null
           patch -p1 -l --no-backup-if-mismatch < "$RUNNER_TEMP/msgram-files/msgram.patch" || { echo "PATCH FAILED"; find . -name "*.rej" -exec cat {} \; ; exit 1; }
           cp -r "$RUNNER_TEMP/msgram-files/Telegram/." Telegram/
+          # dump_syms (crash symbols tool) fails to build and is not needed.
+          sed -i '/windows.*dump_syms/d; /gyp dump_syms/d; /msbuild -m dump_syms/d' Telegram/build/prepare/prepare.py
 
       - name: First set up.
         shell: bash
@@ -82,14 +84,16 @@ jobs:
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
       - name: ThirdParty cache.
-        uses: actions/cache@v4
+        id: c1
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: ${{ runner.OS }}-third-party-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-third-party-
 
       - name: Libraries cache.
-        uses: actions/cache@v4
+        id: c2
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.LibrariesPath }}\*
@@ -101,7 +105,8 @@ jobs:
           restore-keys: ${{ runner.OS }}-libs-release-
 
       - name: Qt cache.
-        uses: actions/cache@v4
+        id: c3
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.LibrariesPath }}\[qQ]t[_-]*
@@ -114,8 +119,40 @@ jobs:
           %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent qt6
 
       - name: Free up some disk space.
+        if: always()
         shell: bash
         run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+
+      - name: Save ThirdParty cache.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ runner.OS }}-third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}
+
+      - name: Save Libraries cache.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: ${{ runner.OS }}-libs-release-${{ env.CACHE_KEY }}-${{ github.run_id }}
+
+      - name: Save Qt cache.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: ${{ runner.OS }}-qt6-release-${{ env.CACHE_KEY }}-${{ github.run_id }}
 
       - name: msgram build.
         if: ${{ !inputs.only_cache }}
