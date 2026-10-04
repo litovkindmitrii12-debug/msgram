@@ -1,0 +1,344 @@
+name: Build msgram for Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build.yml'
+      - 'msgram-files.zip'
+  workflow_dispatch:
+    inputs:
+      only_cache:
+        description: "Only prepare the libraries (do not build msgram.exe)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: msgram-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: msgram.exe (x64, Qt 6, Release)
+    runs-on: windows-latest
+    timeout-minutes: 360
+    env:
+      REPO_NAME: tdesktop
+      PREPARE_PATH: Telegram/build/prepare/prepare.py
+      TDESKTOP_REVISION: d8594c011756265de4385408540bd9f7c787a003
+      MSVC_TOOLSET: '14.44'
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+      PYTHONUTF8: '1'
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Get msgram files.
+        uses: actions/checkout@v4
+        with:
+          path: msgram-src
+          persist-credentials: false
+
+      - name: Prepare directories on the workspace disk.
+        shell: pwsh
+        run: |
+          $build = Join-Path $env:GITHUB_WORKSPACE 'TBuild'
+          $temp = Join-Path $env:GITHUB_WORKSPACE 'BuildTemp'
+          New-Item -ItemType Directory -Force -Path "$build\Libraries", "$build\ThirdParty", $temp | Out-Null
+          "TBUILD=$build" >> $env:GITHUB_ENV
+          "LibrariesPath=$build\Libraries\win64" >> $env:GITHUB_ENV
+          "TEMP=$temp" >> $env:GITHUB_ENV
+          "TMP=$temp" >> $env:GITHUB_ENV
+          Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+            "{0}: used {1:N1} GB, free {2:N1} GB" -f $_.Name, ($_.Used / 1GB), ($_.Free / 1GB)
+          }
+
+      - name: Get the verified source and apply msgram changes.
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$TBUILD/$REPO_NAME"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin https://github.com/telegramdesktop/tdesktop.git
+          git -C "$source_dir" fetch --depth 1 origin "$TDESKTOP_REVISION"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "$TDESKTOP_REVISION"
+          git -C "$source_dir" submodule update --init --recursive --depth 1 --jobs 4
+          7z x -y -o"$RUNNER_TEMP/msgram-files" "$GITHUB_WORKSPACE/msgram-src/msgram-files.zip"
+          cd "$source_dir"
+          patch --batch --forward -p1 -l --fuzz=0 --no-backup-if-mismatch \
+            < "$RUNNER_TEMP/msgram-files/msgram.patch"
+          cp -r "$RUNNER_TEMP/msgram-files/Telegram/." Telegram/
+          git config --global user.email "msgram@example.com"
+          git config --global user.name "msgram"
+
+      - name: Prepare a Release-only Qt build and cache identity.
+        shell: python
+        run: |
+          import ast
+          import hashlib
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+
+          source = Path(os.environ["TBUILD"]) / os.environ["REPO_NAME"]
+          revision = subprocess.check_output(
+              ["git", "-C", str(source), "rev-parse", "HEAD"], text=True
+          ).strip()
+          if revision != os.environ["TDESKTOP_REVISION"]:
+              raise RuntimeError("Unexpected Telegram Desktop revision")
+          prepare = source / os.environ["PREPARE_PATH"]
+          text = prepare.read_text(encoding="utf-8")
+
+          def replace_once(value, old, new):
+              if value.count(old) != 1:
+                  raise RuntimeError("Unexpected prepare.py layout: " + repr(old))
+              return value.replace(old, new, 1)
+
+          text = replace_once(
+              text,
+              "    cd tools\\\\windows\\\\dump_syms\n"
+              "    gyp dump_syms.gyp --format=msvs\n"
+              "    msbuild -m dump_syms.vcxproj /property:Configuration=Release "
+              "/property:Platform=\"x64\" %ToolsetProp%\n",
+              "",
+          )
+          start = text.index("else: # qt > '6'")
+          end = text.index("\nstage('tg_owt'", start)
+          qt = text[start:end]
+          win_start = qt.index("\nwin:\n")
+          windows = qt[win_start:]
+          windows = replace_once(windows, "SET CONFIGURATIONS=-debug\n", "SET CONFIGURATIONS=-release\n")
+          windows = replace_once(windows, "SET CONFIGURATIONS=-debug-and-release\n", "SET CONFIGURATIONS=-release\n")
+          windows = replace_once(windows, "        -force-debug-info ^\n", "")
+          windows = replace_once(
+              windows,
+              "    cmake --build . --config Debug\n"
+              "    cmake --install . --config Debug\n"
+              "    cmake --build .\n"
+              "    cmake --install .\n",
+              "    cmake --build . --config Release\n"
+              "    cmake --install . --config Release\n",
+          )
+          qt = qt[:win_start] + windows
+          text = text[:start] + qt + text[end:]
+          ast.parse(text)
+          prepare.write_text(text, encoding="utf-8")
+
+          cmake_share = Path(os.environ["ProgramFiles"]) / "CMake" / "share"
+          for module in cmake_share.glob("cmake*/Modules/Platform/Windows-MSVC.cmake"):
+              lines = module.read_text(encoding="utf-8").splitlines(keepends=True)
+              lines = [
+                  line.replace("${_Zi}", "") if "CMAKE_${lang}_FLAGS_DEBUG_INIT" in line else line
+                  for line in lines
+              ]
+              module.write_text("".join(lines), encoding="utf-8")
+
+          doc = (source / "docs/building-win.md").read_text(encoding="utf-8")
+          match = re.search(r"\*\*(\d+\.\d+\.\d+\.\d+)\*\* SDK version", doc)
+          if not match:
+              raise RuntimeError("Windows SDK version was not found in the build instructions")
+          sdk = match.group(1)
+          identity = hashlib.sha256()
+          for part in [
+              revision.encode(),
+              prepare.read_bytes(),
+              (source / "Telegram/build/qt_version.py").read_bytes(),
+              sdk.encode(),
+              os.environ["MSVC_TOOLSET"].encode(),
+              str(source.parent.resolve()).encode(),
+              b"msgram-windows-release-v2",
+          ]:
+              identity.update(part)
+              identity.update(b"\0")
+          key = identity.hexdigest()
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"SDK={sdk}\nCACHE_KEY={key}\n")
+          print(f"Verified source: {revision}; SDK: {sdk}; Qt: Release only; cache: {key}")
+
+      - name: Native Tools Command Prompt.
+        uses: Eden-CI/msvc-dev-cmd@1bd71f95d6f3d1b2b3395b335cc63bcdc90cf223
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: ${{ env.MSVC_TOOLSET }}
+
+      - name: NuGet sources.
+        shell: pwsh
+        run: |
+          $sources = nuget sources List -Format Short
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($sources -match 'Microsoft Visual Studio Offline Packages') {
+            nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if ($sources -notmatch 'https://api\.nuget\.org/v3/index\.json') {
+            nuget sources Add -Name nuget.org -Source https://api.nuget.org/v3/index.json
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: ThirdParty cache.
+        id: c1
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: Windows-x64-msgram-tools-v2-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: Windows-x64-msgram-tools-v2-${{ env.CACHE_KEY }}-
+
+      - name: Libraries cache.
+        id: c2
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: Windows-x64-msgram-libs-v2-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: Windows-x64-msgram-libs-v2-${{ env.CACHE_KEY }}-
+
+      - name: Qt cache.
+        id: c3
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: Windows-x64-msgram-qt6-v2-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: Windows-x64-msgram-qt6-v2-${{ env.CACHE_KEY }}-
+
+      - name: Libraries.
+        id: libraries
+        timeout-minutes: 260
+        run: |
+          call "%TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat" silent qt6
+          if errorlevel 1 exit /b 1
+
+      - name: Remove compiler intermediates and check the Qt cache.
+        if: ${{ always() && steps.libraries.outcome != 'skipped' }}
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          root = Path(os.environ["LibrariesPath"])
+          deleted = 0
+          suffixes = {".obj", ".pch", ".pdb", ".ilk", ".ipdb", ".iobj"}
+          for path in root.rglob("*"):
+              if path.suffix.lower() not in suffixes or not path.is_file():
+                  continue
+              if any(part.lower().startswith("objects-") for part in path.parts):
+                  continue
+              size = path.stat().st_size
+              path.unlink()
+              deleted += size
+          ready = any((root / "cache_keys").glob("qt_*")) and any(
+              root.glob("Qt-*/lib/cmake/Qt6/Qt6Config.cmake")
+          )
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"QT_READY={str(ready).lower()}\n")
+          print(f"Removed {deleted / (1024 ** 3):.1f} GB of compiler intermediates. Qt ready: {ready}")
+
+      - name: Disk space report.
+        if: always()
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+            "{0}: used {1:N1} GB, free {2:N1} GB" -f $_.Name, ($_.Used / 1GB), ($_.Free / 1GB)
+          }
+
+      - name: Save ThirdParty cache.
+        if: ${{ always() && steps.libraries.outcome != 'skipped' && steps.c1.outputs.cache-primary-key != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ steps.c1.outputs.cache-primary-key }}
+
+      - name: Save Libraries cache.
+        if: ${{ always() && steps.libraries.outcome != 'skipped' && steps.c2.outputs.cache-primary-key != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: ${{ steps.c2.outputs.cache-primary-key }}
+
+      - name: Save Qt cache.
+        if: ${{ always() && env.QT_READY == 'true' && steps.c3.outputs.cache-primary-key != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: ${{ steps.c3.outputs.cache-primary-key }}
+
+      - name: Configure msgram.
+        if: ${{ !inputs.only_cache }}
+        run: |
+          cd /d "%TBUILD%\%REPO_NAME%\Telegram"
+          call configure.bat ^
+            x64 ^
+            qt6 ^
+            -D TDESKTOP_API_TEST=ON ^
+            -D CMAKE_CONFIGURATION_TYPES=Release ^
+            -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
+            -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
+            -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          if errorlevel 1 exit /b 1
+
+      - name: Build msgram.exe.
+        if: ${{ !inputs.only_cache }}
+        timeout-minutes: 180
+        run: |
+          cmake --build "%TBUILD%\%REPO_NAME%\out" --config Release --target Telegram --parallel 4
+          if errorlevel 1 exit /b 1
+
+      - name: Verify and collect msgram.exe.
+        if: ${{ !inputs.only_cache }}
+        shell: python
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import struct
+          executable = Path(os.environ["TBUILD"]) / os.environ["REPO_NAME"] / "out/Release/msgram.exe"
+          with executable.open("rb") as stream:
+              if stream.read(2) != b"MZ":
+                  raise RuntimeError("msgram.exe is not a Windows executable")
+              stream.seek(0x3c)
+              offset = struct.unpack("<I", stream.read(4))[0]
+              stream.seek(offset)
+              if stream.read(4) != b"PE\0\0" or struct.unpack("<H", stream.read(2))[0] != 0x8664:
+                  raise RuntimeError("msgram.exe is not a valid x64 PE executable")
+          artifact = Path(os.environ["GITHUB_WORKSPACE"]) / "artifact"
+          artifact.mkdir(exist_ok=True)
+          shutil.copy2(executable, artifact / "msgram.exe")
+          (artifact / "msgram_server.txt").write_text("127.0.0.1:10443\n", encoding="utf-8")
+          checksum = hashlib.sha256(executable.read_bytes()).hexdigest()
+          (artifact / "SHA256SUMS.txt").write_text(f"{checksum}  msgram.exe\n", encoding="utf-8")
+          print(f"Verified x64 msgram.exe: {executable.stat().st_size} bytes; SHA256: {checksum}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("Built and verified **msgram.exe (Windows x64, Release)**.\n\n")
+              summary.write("Download **msgram-windows-x64** under this run's Artifacts.\n\n")
+              summary.write("Set your server address in **msgram_server.txt** before connecting.\n")
+
+      - name: Upload msgram.exe.
+        if: ${{ !inputs.only_cache }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: msgram-windows-x64
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
