@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Msgram — мессенджер на скорости света</title>
+<meta name="description" content="Msgram — мессенджер с видеокружками, голосовыми и настраиваемым дизайном чата для Windows и Android. Скачай бесплатно.">
+<meta property="og:title" content="Msgram — мессенджер на скорости света">
+<meta property="og:description" content="Видеокружки, голосовые и дизайн чата под себя. Windows и Android, бесплатно.">
+<meta property="og:image" content="assets/logo.png">
+<meta name="theme-color" content="#f3f8ff" id="themeColor">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<script>
+try{var t=localStorage.getItem('msgram-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<canvas id="net" aria-hidden="true"></canvas>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top"><img src="assets/logo.png" alt="" width="40" height="40"><span>Msgram</span></a>
+  <nav class="links">
+    <a href="#features">Возможности</a>
+    <a href="#steps">Как начать</a>
+    <a href="#download">Скачать</a>
+    <a href="#faq">Вопросы</a>
+  </nav>
+  <div class="nav-r">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Переключить тёмную и светлую тему" title="Тёмная / светлая тема">
+      <svg class="i-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></svg>
+      <svg class="i-moon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a.7.7 0 0 0-.9-.9A9.8 9.8 0 1 0 21.4 15.5a.7.7 0 0 0-.9-.9z"/></svg>
+    </button>
+    <a class="btn btn-sm" href="#download">Скачать</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-text">
+      <span class="pill reveal"><i class="dot"></i> Бесплатно · Windows и Android</span>
+      <h1 class="reveal">Общайся<br>на <span class="grad">скорости света</span></h1>
+      <p class="lead reveal">Msgram — мессенджер с видеокружками, голосовыми сообщениями и дизайном чата, который ты настраиваешь под себя. Удобный, быстрый и красивый.</p>
+      <div class="cta reveal">
+        <a class="btn btn-neon" data-os="windows" href="downloads/msgram.exe" download>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 5.5 11 4.4v7.1H3zM12 4.3 21 3v8.5h-9zM3 12.5h8v7.1L3 18.5zM12 12.5h9V21l-9-1.3z"/></svg>
+          <span>Скачать для Windows<small>.exe · 10,1 МБ</small></span>
+        </a>
+        <a class="btn btn-ghost" data-os="android" href="downloads/msgram.apk" download>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17.6 9.5a5.6 5.6 0 0 0-11.2 0zM8.7 6.6l-1.2-2 .6-.3 1.2 2a5.6 5.6 0 0 1 5.4 0l1.2-2 .6.3-1.2 2A5.5 5.5 0 0 1 17.6 8.7H6.4a5.5 5.5 0 0 1 2.3-2.1zM9.5 7.6a.5.5 0 1 0 0 .01zm5 0a.5.5 0 1 0 0 .01zM6.4 10.5h11.2v8a1.5 1.5 0 0 1-1.5 1.5h-.9v2.3a1.2 1.2 0 0 1-2.4 0V20h-1.6v2.3a1.2 1.2 0 0 1-2.4 0V20h-.9a1.5 1.5 0 0 1-1.5-1.5zM4.4 10.5a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2zm15.2 0a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2z"/></svg>
+          <span>Скачать для Android<small>.apk · 61 КБ</small></span>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-visual reveal">
+      <div class="phone" id="phone" data-theme="ocean">
+        <div class="notch"></div>
+        <div class="chat-head">
+          <div class="ava">Б</div>
+          <div class="who"><b>Бро ✊</b><small><i class="dot"></i> в сети</small></div>
+          <span class="theme-name" id="themeName">🎨 Океан</span>
+        </div>
+        <div class="chat" id="chat"></div>
+        <div class="composer"><span>Сообщение…</span><button aria-label="Голосовое"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 0 0-7 0v6A3.5 3.5 0 0 0 12 15zm6-3.5a6 6 0 0 1-5 5.9V21h-2v-3.6a6 6 0 0 1-5-5.9h2a4 4 0 0 0 8 0z"/></svg></button></div>
+      </div>
+      <div class="themes"><div class="swatches" id="swatches"></div><small>Выбери цвет чата — в Msgram он твой</small></div>
+      <div class="chip c1">🎥 Видеокружки</div>
+      <div class="chip c2">🎙 Голосовые</div>
+      <div class="chip c3">🎨 Свой дизайн чата</div>
+    </div>
+  </section>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="track">
+      <span>🎥 Видеокружки</span><span>🎙 Голосовые</span><span>🎨 Свой дизайн чата</span><span>✨ Удобный</span><span>🖥 Windows</span><span>📱 Android</span><span>🎁 Бесплатно</span>
+      <span>🎥 Видеокружки</span><span>🎙 Голосовые</span><span>🎨 Свой дизайн чата</span><span>✨ Удобный</span><span>🖥 Windows</span><span>📱 Android</span><span>🎁 Бесплатно</span>
+      <span>🎥 Видеокружки</span><span>🎙 Голосовые</span><span>🎨 Свой дизайн чата</span><span>✨ Удобный</span><span>🖥 Windows</span><span>📱 Android</span><span>🎁 Бесплатно</span>
+      <span>🎥 Видеокружки</span><span>🎙 Голосовые</span><span>🎨 Свой дизайн чата</span><span>✨ Удобный</span><span>🖥 Windows</span><span>📱 Android</span><span>🎁 Бесплатно</span>
+    </div>
+  </div>
+
+  <section class="section" id="features">
+    <div class="head reveal">
+      <span class="eyebrow">Возможности</span>
+      <h2>Всё нужное. <span class="grad">Ничего лишнего.</span></h2>
+      <p class="sub">Общение, в котором есть эмоции: покажи, как ты выглядишь, наговори голосом и оформи чат так, как нравится.</p>
+    </div>
+    <div class="bento">
+      <article class="card spot big reveal">
+        <div class="card-vis vstack">
+          <div class="mv" style="--a:#22d3ee;--b:#2f6bff"><div class="vc-img"></div><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="61" fill="none" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 64 64)"/></svg><em>0:12</em></div>
+          <div class="mv m2" style="--a:#b793ff;--b:#7a4dff"><div class="vc-img"></div><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="61" fill="none" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 64 64)"/></svg><em>0:07</em></div>
+          <div class="mv m3" style="--a:#ffb36b;--b:#ff4d6d"><div class="vc-img"></div><svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="61" fill="none" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" transform="rotate(-90 64 64)"/></svg><em>0:20</em></div>
+        </div>
+        <h3>Видеокружки</h3>
+        <p>Записывай короткие видео-сообщения в кружке — живее и ближе, чем обычный текст.</p>
+      </article>
+
+      <article class="card spot big reveal">
+        <div class="card-vis">
+          <div class="voice-demo">
+            <div class="vplay"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div>
+            <div class="live" id="live"></div>
+            <span class="vtime">0:08</span>
+          </div>
+          <div class="voice-demo v2">
+            <div class="vplay"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div>
+            <div class="live" id="live2"></div>
+            <span class="vtime">0:21</span>
+          </div>
+        </div>
+        <h3>Голосовые сообщения</h3>
+        <p>Лень печатать — просто наговори. Волна звука и время прямо в чате.</p>
+      </article>
+
+      <article class="card spot reveal" id="themeCard" style="--a:#4aa3ff;--b:#2f6bff">
+        <div class="card-vis mini-chat">
+          <div class="mb in">Какой цвет выберешь?</div>
+          <div class="mb out">Вот этот 🎨</div>
+          <div class="mini-sw" id="miniSw"></div>
+        </div>
+        <h3>Свой дизайн чата</h3>
+        <p>Цвета и стиль — как нравится именно тебе. Попробуй сам.</p>
+      </article>
+
+      <article class="card spot reveal">
+        <div class="card-vis big-ico"><span>✨</span></div>
+        <h3>Удобный</h3>
+        <p>Понятный интерфейс, в котором легко разобраться с первого запуска.</p>
+      </article>
+
+      <article class="card spot reveal">
+        <div class="card-vis plats">
+          <span><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M3 5.5 11 4.4v7.1H3zM12 4.3 21 3v8.5h-9zM3 12.5h8v7.1L3 18.5zM12 12.5h9V21l-9-1.3z"/></svg></span>
+          <span><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M17.6 9.5a5.6 5.6 0 0 0-11.2 0zM6.4 10.5h11.2v8a1.5 1.5 0 0 1-1.5 1.5h-.9v2.3a1.2 1.2 0 0 1-2.4 0V20h-1.6v2.3a1.2 1.2 0 0 1-2.4 0V20h-.9a1.5 1.5 0 0 1-1.5-1.5zM4.4 10.5a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2zm15.2 0a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2z"/></svg></span>
+        </div>
+        <h3>Бесплатно</h3>
+        <p>Windows и Android, без подписок и скрытых платежей. Скачал, установил, пишешь.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="steps">
+    <div class="head reveal">
+      <span class="eyebrow">Как начать</span>
+      <h2>Три шага до <span class="grad">первого сообщения</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step tilt reveal"><b>1</b><h3>Скачай</h3><p>Выбери версию для Windows или Android и нажми на кнопку.</p></div>
+      <div class="step tilt reveal"><b>2</b><h3>Установи</h3><p>Открой файл и следуй подсказкам. Это занимает меньше минуты.</p></div>
+      <div class="step tilt reveal"><b>3</b><h3>Общайся</h3><p>Отправляй кружки и голосовые, настрой чат под себя.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="download">
+    <div class="head reveal">
+      <span class="eyebrow">Скачать</span>
+      <h2>Выбери свою <span class="grad">платформу</span></h2>
+    </div>
+    <div class="dl-grid">
+      <article class="dl tilt reveal" data-os="windows">
+        <div class="dl-icon"><svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M3 5.5 11 4.4v7.1H3zM12 4.3 21 3v8.5h-9zM3 12.5h8v7.1L3 18.5zM12 12.5h9V21l-9-1.3z"/></svg></div>
+        <h3>Msgram для Windows</h3>
+        <p class="meta">Файл .exe · 10,1 МБ · Windows 10 / 11</p>
+        <a class="btn btn-neon" href="downloads/msgram.exe" download>Скачать .exe</a>
+      </article>
+      <article class="dl tilt reveal" data-os="android">
+        <div class="dl-icon"><svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M17.6 9.5a5.6 5.6 0 0 0-11.2 0zM6.4 10.5h11.2v8a1.5 1.5 0 0 1-1.5 1.5h-.9v2.3a1.2 1.2 0 0 1-2.4 0V20h-1.6v2.3a1.2 1.2 0 0 1-2.4 0V20h-.9a1.5 1.5 0 0 1-1.5-1.5zM4.4 10.5a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2zm15.2 0a1.2 1.2 0 0 1 1.2 1.2v5.6a1.2 1.2 0 0 1-2.4 0v-5.6a1.2 1.2 0 0 1 1.2-1.2z"/></svg></div>
+        <h3>Msgram для Android</h3>
+        <p class="meta">Файл .apk · 61 КБ · Android</p>
+        <a class="btn btn-neon" href="downloads/msgram.apk" download>Скачать .apk</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="head reveal">
+      <span class="eyebrow">Вопросы</span>
+      <h2>Частые <span class="grad">вопросы</span></h2>
+    </div>
+    <div class="faq">
+      <details class="reveal"><summary>Как установить на Android?</summary><p>Скачай .apk, открой файл и разреши установку из неизвестных источников, если телефон попросит (Настройки → Безопасность). После установки значок Msgram появится на экране.</p></details>
+      <details class="reveal"><summary>Windows пишет «Защитник Windows предотвратил запуск». Что делать?</summary><p>Так бывает у новых программ без цифровой подписи. Нажми «Подробнее» → «Выполнить в любом случае». Если скачивал с этого сайта — файл тот самый.</p></details>
+      <details class="reveal"><summary>Можно ли настроить внешний вид чата?</summary><p>Да, дизайн чата в Msgram настраивается под себя — выбирай цвета и оформление, которые нравятся.</p></details>
+      <details class="reveal"><summary>Это бесплатно?</summary><p>Да, Msgram бесплатный. Никаких подписок и скрытых платежей.</p></details>
+      <details class="reveal"><summary>Будут ли версии для iPhone и macOS?</summary><p>Пока доступны Windows и Android. Следи за обновлениями на этом сайте.</p></details>
+    </div>
+  </section>
+
+  <section class="final reveal">
+    <img src="assets/logo.png" alt="" width="96" height="96">
+    <h2>Готов попробовать <span class="grad">Msgram</span>?</h2>
+    <a class="btn btn-neon" href="#download">Скачать сейчас</a>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="brand" href="#top"><img src="assets/logo.png" alt="" width="32" height="32"><span>Msgram</span></a>
+  <nav class="foot-links"><a href="#features">Возможности</a><a href="#download">Скачать</a><a href="#faq">Вопросы</a></nav>
+  <span>© <span id="year"></span> Msgram. Все права защищены.</span>
+</footer>
+
+<script src="./script.js"></script>
+</body>
+</html>
