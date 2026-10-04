@@ -114,9 +114,26 @@ jobs:
           key: ${{ runner.OS }}-qt6-release-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-qt6-release-
 
+      # Stop this step a bit before the 6 hour job limit, so the cleanup and
+      # the cache saving below still get time to run and keep the progress.
+      # If the build dies for a random reason, try once more: the stages that
+      # are already finished are skipped, only the broken one is rebuilt.
       - name: Libraries.
+        timeout-minutes: 320
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent qt6
+          call %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent qt6
+          if errorlevel 1 (
+            echo ::warning::Libraries failed - trying once more, finished stages are skipped
+            call %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent qt6
+          )
+
+      - name: Disk space report.
+        if: always()
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+            "{0}: used {1:N1} GB, free {2:N1} GB" -f $_.Name, ($_.Used / 1GB), ($_.Free / 1GB)
+          }
 
       - name: Free up some disk space.
         if: always()
@@ -129,7 +146,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.TBUILD }}\ThirdParty
-          key: ${{ runner.OS }}-third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}
+          key: ${{ runner.OS }}-third-party-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Save Libraries cache.
         if: always()
@@ -142,7 +159,7 @@ jobs:
             !${{ env.LibrariesPath }}\[qQ]t[_-]*
             ${{ env.LibrariesPath }}\cache_keys\*
             !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
-          key: ${{ runner.OS }}-libs-release-${{ env.CACHE_KEY }}-${{ github.run_id }}
+          key: ${{ runner.OS }}-libs-release-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Save Qt cache.
         if: always()
@@ -152,7 +169,7 @@ jobs:
           path: |
             ${{ env.LibrariesPath }}\[qQ]t[_-]*
             ${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
-          key: ${{ runner.OS }}-qt6-release-${{ env.CACHE_KEY }}-${{ github.run_id }}
+          key: ${{ runner.OS }}-qt6-release-${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: msgram build.
         if: ${{ !inputs.only_cache }}
