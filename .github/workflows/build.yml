@@ -12,11 +12,6 @@ on:
         description: "Only build and cache the libraries (no msgram.exe)"
         type: boolean
         default: false
-  push:
-    branches: [ main, master ]
-    paths:
-      - 'Telegram/**'
-      - '.github/workflows/msgram-win.yml'
 
 jobs:
   windows:
@@ -37,29 +32,26 @@ jobs:
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
-      - name: Get repository name.
+      - name: Repository name.
         shell: bash
-        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+        run: echo "REPO_NAME=tdesktop" >> $GITHUB_ENV
 
-      - name: Clone.
+      - name: Get msgram files.
         uses: actions/checkout@v4
         with:
-          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+          path: msgram-src
 
-      # The source archive has no git submodules (lib_ui, lib_base, ...).
-      # Take them from the official repository.
-      - name: Fetch missing submodules.
+      # Official Telegram Desktop source (same version 7.2.10) + msgram changes.
+      - name: Get source and apply msgram changes.
         shell: bash
         run: |
-          cd "$TBUILD/$REPO_NAME"
+          set -x
           git clone --depth 1 --recurse-submodules --shallow-submodules \
-            https://github.com/telegramdesktop/tdesktop.git "$TBUILD/upstream"
-          grep 'path = ' .gitmodules | sed 's/.*path = //' | while read -r p; do
-            if [ -z "$(ls -A "$p" 2>/dev/null)" ]; then
-              mkdir -p "$p"
-              cp -r "$TBUILD/upstream/$p/." "$p/"
-            fi
-          done
+            https://github.com/telegramdesktop/tdesktop.git "$TBUILD/$REPO_NAME"
+          cd "$TBUILD/$REPO_NAME"
+          7z x -y -o"$RUNNER_TEMP/msgram-files" "$GITHUB_WORKSPACE/msgram-src/msgram-files.zip" > /dev/null
+          patch -p1 -l --no-backup-if-mismatch < "$RUNNER_TEMP/msgram-files/msgram.patch" || { echo "PATCH FAILED"; find . -name "*.rej" -exec cat {} \; ; exit 1; }
+          cp -r "$RUNNER_TEMP/msgram-files/Telegram/." Telegram/
 
       - name: First set up.
         shell: bash
