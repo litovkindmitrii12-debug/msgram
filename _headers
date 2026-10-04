@@ -1,0 +1,14 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/downloads/*.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="Msgram.apk"
+
+/downloads/*.exe
+  Content-Type: application/octet-stream
+  Content-Disposition: attachment; filename="Msgram.exe"
+
+/assets/*
+  Cache-Control: public, max-age=86400
